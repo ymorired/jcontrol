@@ -1,0 +1,17 @@
+{
+    "aws": {
+        "region": "us-west-1",
+        "placement": "us-west-1a",
+        "ami": "ami-****",
+        "subnet_id": "subnet-****",
+        "groups": [
+            "sg-****",
+            "sg-****"
+        ]
+    },
+    "instance": {
+        "type": "m3.medium",
+        "key_name": "****",
+        "username": "ubuntu"
+    }
+}
