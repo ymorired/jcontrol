@@ -1,0 +1,158 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Customized boilerplate for public subnet formation",
+  "Parameters" : {
+    "VpcCidr" : {
+      "Description" : "CIDR address for the VPC to be created.",
+      "Type" : "String",
+      "Default" : "10.0.0.0/16"
+    },
+    "PublicSubnet" : {
+      "Description" : "Address range for a public subnet to be created in AZ1.",
+      "Type" : "String",
+      "Default" : "10.0.0.0/24"
+    },
+    "AvailabilityZone" : {
+      "Description" : "First AZ to use for PublicSubnet.",
+      "Type" : "String",
+      "Default" : "us-west-1a"
+    },
+    "SSHIpRange" : {
+      "Description" : "IP Address range to accept SSH Connection",
+      "Type" : "String",
+      "Default" : "0.0.0.0/0"
+    }
+  },
+  "Resources" : {
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "VpcCidr" },
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "VPC" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "PubSubnet1" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "AvailabilityZone" : { "Ref" : "AvailabilityZone" },
+        "CidrBlock" : { "Ref" : "PublicSubnet" },
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "Public1" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "IGW" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "VPCGatewayAttachment" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+    "PublicRouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "Public-RT" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } },
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "PublicRoute" : {
+      "Type" : "AWS::EC2::Route",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "PubSubnet1RTAssociation": {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "SubnetId" : { "Ref" : "PubSubnet1" }
+      }
+    },
+    "InternalSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "InternalSecurityGroup",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupEgress" : [
+           { "IpProtocol" : "-1", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "0.0.0.0/0" }
+        ],
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "InternalSecurityGroup" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } }
+        ]
+      }
+    },
+    "InternalSecurityGroupIngress": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": {
+            "GroupId": { "Ref": "InternalSecurityGroup" },
+            "IpProtocol": "-1",
+            "SourceSecurityGroupId": { "Ref": "InternalSecurityGroup" },
+            "FromPort": "0",
+            "ToPort": "65535"
+        }
+    },
+    "SSHSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "SSHSecurityGroup",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress": [
+            { "IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": { "Ref": "SSHIpRange" }}
+        ],
+        "SecurityGroupEgress" : [
+           { "IpProtocol" : "-1", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "0.0.0.0/0" }
+        ],
+        "Tags" : [
+          { "Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "SSHSecurityGroup" ] ] } },
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackName" } }
+        ]
+      }
+    }
+  },
+  "Outputs" : {
+    "VPCID" : {
+      "Description" : "VPC Info.",
+      "Value" : { "Fn::Join" : [ "", [ { "Ref" : "VPC" }, " (", { "Ref" : "VpcCidr" }, ")" ]] }
+    },
+    "PublicSubnet" : {
+      "Description" : "Public Subnet",
+      "Value" : { "Fn::Join" : [ "", [ { "Ref" : "PubSubnet1" }, " (", { "Ref" : "PublicSubnet" }, ") ", { "Ref" : "AvailabilityZone" } ]] }
+    },
+    "PublicRouteTable" : {
+      "Description" : "Public Route Table.",
+      "Value" : { "Fn::Join" : [ "", [ { "Ref" : "PublicRouteTable" }, " (0.0.0.0/0 -> ", { "Ref" : "InternetGateway" }, ")" ]] }
+    },
+    "InternalSecurityGroup": {
+      "Description": "SecurityGroup for internal network",
+      "Value" : { "Fn::Join" : [ "", [ { "Ref" : "InternalSecurityGroup" }, "" ]] }
+    },
+    "SSHSecurityGroup": {
+      "Description": "SecurityGroup for SSH",
+      "Value" : { "Fn::Join" : [ "", [ { "Ref" : "SSHSecurityGroup" }, "" ]] }
+    }
+  }
+}
