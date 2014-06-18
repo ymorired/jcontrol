@@ -5,12 +5,13 @@ JmeterControll
 ```pip install -r requirements.txt``` will install all required modules.
 
 
-### Edit ~/.boto file to add credentials
+### Export AWS Credentials
 ```
-[Credentials]
-aws_access_key_id = ****
-aws_secret_access_key = ****
+export AWS_ACCESS_KEY_ID="AKIA-------"
+export AWS_SECRET_ACCESS_KEY="-------"
+export AWS_DEFAULT_REGION="us-west-1"
 ```
+
 
 # Run
 
