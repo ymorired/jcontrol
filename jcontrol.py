@@ -24,6 +24,14 @@ class STATE():
     BOOTED = 2
 
 
+def _create_ec2_connection(region):
+    return boto.ec2.connect_to_region(
+        region_name=region,
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    )
+
+
 def _update_state(state_dict):
     with open(STATE_FILENAME, 'w') as fl:
         json.dump(state_dict, fl)
@@ -68,7 +76,7 @@ def run(slave_num=1):
     subnet_id = conf['aws']['subnet_id']
     groups = conf['aws']['groups']
 
-    conn = boto.ec2.connect_to_region(region)
+    conn = _create_ec2_connection(region)
 
     # create instances
     interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
@@ -143,7 +151,7 @@ def terminate():
     conf = _read_config()
     region = conf['aws']['region']
 
-    conn = boto.ec2.connect_to_region(region)
+    conn = _create_ec2_connection(region)
 
     instance_ids = [state['master']['id']]
     print 'Stopping master:%s' % state['master']['id']
@@ -181,7 +189,7 @@ def server():
     region = conf['aws']['region']
 
     instance_ids = [ins_info['id'] for ins_info in state['slaves']]
-    conn = boto.ec2.connect_to_region(region)
+    conn = _create_ec2_connection(region)
 
     reservations = conn.get_all_instances(instance_ids=instance_ids)
     instances = []
@@ -194,7 +202,8 @@ def server():
         params.append({
             'i': i,
             'ip_address': instance.ip_address,
-            'command': 'pkill java; cd /var/app/jmeter/bin; ./jmeter-server > out.log 2>&1',
+            'command': 'pkill java; cd /var/app/jmeter/bin; ./jmeter-server -Djava.rmi.server.hostname=%s > out.log 2>&1'
+                       % instance.private_ip_address,
             # 'command': 'pkill java',
             'username': conf['instance']['username'],
             'key_name': conf['instance']['key_name'],
@@ -225,7 +234,7 @@ def _execute(param):
             key_filename=_get_pem_path(param['key_name'])
         )
 
-        print '%i is getting ready..' % param['i']
+        print '%i is getting ready.. %s' % (param['i'], param['command'])
 
         command = param['command']
         stdin, stdout, stderr = client.exec_command(command)
